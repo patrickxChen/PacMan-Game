@@ -210,6 +210,19 @@ function availableDirections(entity) {
   return ['U', 'D', 'L', 'R'].filter((dir) => canStep(entity, dir, 3));
 }
 
+function snapGhostToGrid(ghost) {
+  const snapThreshold = 6;
+  const targetX = Math.round(ghost.x / tileSize) * tileSize;
+  const targetY = Math.round(ghost.y / tileSize) * tileSize;
+
+  if (Math.abs(ghost.x - targetX) <= snapThreshold) {
+    ghost.x = targetX;
+  }
+  if (Math.abs(ghost.y - targetY) <= snapThreshold) {
+    ghost.y = targetY;
+  }
+}
+
 function moveEntity(entity, dt) {
   if (entity.intendedDir) {
     trySwitchDirection(entity, entity.intendedDir);
@@ -224,28 +237,36 @@ function moveEntity(entity, dt) {
 }
 
 function updateGhost(ghost, dt) {
-  if (Math.abs(ghost.y - state.ghostHouseY) < 2 && ghost.dir !== 'U' && ghost.dir !== 'D') {
-    trySwitchDirection(ghost, 'U');
-  }
+  snapGhostToGrid(ghost);
 
-  const moved = moveByDirection(ghost, dt);
-  if (!moved) {
-    const opposite = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir];
-    const options = availableDirections(ghost).filter((dir) => dir !== opposite);
-    const fallback = options.length ? options : availableDirections(ghost);
-    if (fallback.length) {
-      ghost.dir = fallback[Math.floor(Math.random() * fallback.length)];
-      moveByDirection(ghost, dt);
+  const opposite = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir];
+  const dirs = availableDirections(ghost);
+  const forwardBlocked = !canStep(ghost, ghost.dir, 4);
+  const atIntersection = dirs.length >= 3;
+
+  if (forwardBlocked || atIntersection) {
+    let options = dirs.filter((dir) => dir !== opposite);
+    if (!options.length) {
+      options = dirs;
     }
-    return;
-  }
 
-  if (Math.random() < 0.012) {
-    const opposite = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir];
-    const options = availableDirections(ghost).filter((dir) => dir !== opposite);
     if (options.length) {
       ghost.dir = options[Math.floor(Math.random() * options.length)];
     }
+  } else if (dirs.length >= 2 && Math.random() < 0.03) {
+    let options = dirs.filter((dir) => dir !== opposite && dir !== ghost.dir);
+    if (!options.length) {
+      options = dirs.filter((dir) => dir !== opposite);
+    }
+    if (options.length) {
+      ghost.dir = options[Math.floor(Math.random() * options.length)];
+    }
+  }
+
+  const moved = moveByDirection(ghost, dt);
+  if (!moved && dirs.length) {
+    ghost.dir = dirs[Math.floor(Math.random() * dirs.length)];
+    moveByDirection(ghost, dt);
   }
 }
 
