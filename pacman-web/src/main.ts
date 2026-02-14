@@ -9,6 +9,9 @@ type Difficulty = {
   pacmanStepMs: number;
   ghostStepMs: number;
   lives: number;
+  ghostRandomTurnChance: number;
+  ghostScatterChance: number;
+  ghostPredictTiles: number;
 };
 
 type Entity = {
@@ -65,9 +68,36 @@ const directions: Record<Dir, { dr: number; dc: number }> = {
 const opposite: Record<Dir, Dir> = { U: 'D', D: 'U', L: 'R', R: 'L' };
 
 const presets: Record<Difficulty['key'], Difficulty> = {
-  easy: { key: 'easy', label: 'Easy', pacmanStepMs: 130, ghostStepMs: 175, lives: 4 },
-  normal: { key: 'normal', label: 'Normal', pacmanStepMs: 115, ghostStepMs: 150, lives: 3 },
-  hard: { key: 'hard', label: 'Hard', pacmanStepMs: 95, ghostStepMs: 125, lives: 2 }
+  easy: {
+    key: 'easy',
+    label: 'Easy',
+    pacmanStepMs: 130,
+    ghostStepMs: 175,
+    lives: 4,
+    ghostRandomTurnChance: 0.45,
+    ghostScatterChance: 0.40,
+    ghostPredictTiles: 0
+  },
+  normal: {
+    key: 'normal',
+    label: 'Normal',
+    pacmanStepMs: 115,
+    ghostStepMs: 150,
+    lives: 3,
+    ghostRandomTurnChance: 0.22,
+    ghostScatterChance: 0.12,
+    ghostPredictTiles: 1
+  },
+  hard: {
+    key: 'hard',
+    label: 'Hard',
+    pacmanStepMs: 95,
+    ghostStepMs: 125,
+    lives: 2,
+    ghostRandomTurnChance: 0.08,
+    ghostScatterChance: 0.03,
+    ghostPredictTiles: 2
+  }
 };
 
 const app = document.querySelector('#app') as HTMLDivElement;
@@ -113,6 +143,25 @@ function isWalkable(row: number, col: number): boolean {
 function canMove(entity: Entity, dir: Dir): boolean {
   const d = directions[dir];
   return isWalkable(entity.row + d.dr, entity.col + d.dc);
+}
+
+function getTargetTile(): { row: number; col: number } {
+  if (!state.hero) return { row: 0, col: 0 };
+
+  let targetRow = state.hero.row;
+  let targetCol = state.hero.col;
+  const predict = state.difficulty.ghostPredictTiles;
+  const d = directions[state.hero.dir];
+
+  for (let i = 0; i < predict; i++) {
+    const nr = targetRow + d.dr;
+    const nc = targetCol + d.dc;
+    if (!isWalkable(nr, nc)) break;
+    targetRow = nr;
+    targetCol = nc;
+  }
+
+  return { row: targetRow, col: targetCol };
 }
 
 function makeEntity(row: number, col: number, stepMs: number, dir: Dir, color?: string): Entity {
@@ -202,14 +251,15 @@ function backToMenu(): void {
 function updateDistanceMapFromHero(): void {
   if (!state.hero) return;
 
-  const heroKey = key(state.hero.row, state.hero.col);
+  const target = getTargetTile();
+  const heroKey = key(target.row, target.col);
   if (heroKey === state.lastHeroTileKey) return;
 
   state.lastHeroTileKey = heroKey;
   state.distanceMap = Array.from({ length: rows }, () => Array(cols).fill(Number.POSITIVE_INFINITY));
 
-  const queue: Array<{ row: number; col: number }> = [{ row: state.hero.row, col: state.hero.col }];
-  state.distanceMap[state.hero.row][state.hero.col] = 0;
+  const queue: Array<{ row: number; col: number }> = [{ row: target.row, col: target.col }];
+  state.distanceMap[target.row][target.col] = 0;
 
   while (queue.length) {
     const current = queue.shift()!;
@@ -238,21 +288,30 @@ function chooseGhostDirection(ghost: Entity): Dir {
   const filtered = candidates.filter((dir) => dir !== opposite[ghost.dir]);
   const options = filtered.length ? filtered : candidates;
 
-  if (Math.random() < 0.22) {
+  if (Math.random() < state.difficulty.ghostRandomTurnChance) {
     return options[Math.floor(Math.random() * options.length)];
   }
 
+  const useScatter = Math.random() < state.difficulty.ghostScatterChance;
+
   let bestDir = options[0];
-  let bestDist = Number.POSITIVE_INFINITY;
+  let bestDist = useScatter ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
 
   for (const dir of options) {
     const d = directions[dir];
     const nr = ghost.row + d.dr;
     const nc = ghost.col + d.dc;
     const dist = state.distanceMap[nr]?.[nc] ?? Number.POSITIVE_INFINITY;
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestDir = dir;
+    if (useScatter) {
+      if (dist > bestDist) {
+        bestDist = dist;
+        bestDir = dir;
+      }
+    } else {
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestDir = dir;
+      }
     }
   }
 
