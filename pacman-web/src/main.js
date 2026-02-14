@@ -144,123 +144,75 @@ function collidesWall(x, y, size) {
   });
 }
 
-function currentTile(entity) {
-  const col = Math.round(entity.x / tileSize);
-  const row = Math.round(entity.y / tileSize);
-  return {
-    col: Math.max(0, Math.min(columnCount - 1, col)),
-    row: Math.max(0, Math.min(rowCount - 1, row))
-  };
-}
-
-function isTileOpen(col, row) {
-  if (row < 0 || row >= rowCount || col < 0 || col >= columnCount) return false;
-  return mapRows[row][col] !== 'X';
-}
-
-function isNearTileCenter(entity, threshold = 4) {
-  const tile = currentTile(entity);
-  const tileCenterX = tile.col * tileSize + tileSize / 2;
-  const tileCenterY = tile.row * tileSize + tileSize / 2;
-  const centerX = entity.x + entity.size / 2;
-  const centerY = entity.y + entity.size / 2;
-
-  return (
-    Math.abs(centerX - tileCenterX) <= threshold &&
-    Math.abs(centerY - tileCenterY) <= threshold
-  );
-}
-
-function alignEntityToCenter(entity) {
-  const tile = currentTile(entity);
-  entity.x = tile.col * tileSize;
-  entity.y = tile.row * tileSize;
-}
-
-function canMove(entity, dir) {
-  const tile = currentTile(entity);
+function canStep(entity, dir, step = 2) {
   const vec = directionVectors[dir];
-  const nextCol = tile.col + vec.x;
-  const nextRow = tile.row + vec.y;
-  return isTileOpen(nextCol, nextRow);
+  const testX = entity.x + vec.x * step;
+  const testY = entity.y + vec.y * step;
+  return !collidesWall(testX, testY, entity.size);
 }
 
-function availableDirections(entity) {
-  return ['U', 'D', 'L', 'R'].filter((dir) => canMove(entity, dir));
-}
-
-function moveEntity(entity, dt) {
-  const nearCenter = isNearTileCenter(entity);
-  if (nearCenter) {
-    alignEntityToCenter(entity);
-    if (canMove(entity, entity.intendedDir)) {
-      entity.dir = entity.intendedDir;
-    }
-
-    if (!canMove(entity, entity.dir)) {
-      return;
-    }
-  }
-
+function moveByDirection(entity, dt) {
   const vec = directionVectors[entity.dir];
   const step = entity.speed * dt;
   const nextX = entity.x + vec.x * step;
   const nextY = entity.y + vec.y * step;
-
   if (!collidesWall(nextX, nextY, entity.size)) {
     entity.x = nextX;
     entity.y = nextY;
-  } else if (nearCenter) {
-    alignEntityToCenter(entity);
+    return true;
+  }
+  return false;
+}
+
+function trySwitchDirection(entity, dir) {
+  if (canStep(entity, dir, 3)) {
+    entity.dir = dir;
+    return true;
+  }
+  return false;
+}
+
+function availableDirections(entity) {
+  return ['U', 'D', 'L', 'R'].filter((dir) => canStep(entity, dir, 3));
+}
+
+function moveEntity(entity, dt) {
+  if (entity.intendedDir) {
+    trySwitchDirection(entity, entity.intendedDir);
+  }
+
+  const moved = moveByDirection(entity, dt);
+  if (!moved && entity.intendedDir && entity.intendedDir !== entity.dir) {
+    if (trySwitchDirection(entity, entity.intendedDir)) {
+      moveByDirection(entity, dt);
+    }
   }
 }
 
 function updateGhost(ghost, dt) {
-  const nearCenter = isNearTileCenter(ghost);
-  if (nearCenter) {
-    alignEntityToCenter(ghost);
-
-    if (Math.abs(ghost.y - state.ghostHouseY) < 2 && ghost.dir !== 'U' && ghost.dir !== 'D' && canMove(ghost, 'U')) {
-      ghost.dir = 'U';
-    } else {
-      const options = availableDirections(ghost);
-      const opposite = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir];
-      const forwardOpen = canMove(ghost, ghost.dir);
-
-      let candidates = options.filter((dir) => dir !== opposite);
-      if (!candidates.length) candidates = options;
-
-      if (!forwardOpen && candidates.length) {
-        ghost.dir = candidates[Math.floor(Math.random() * candidates.length)];
-      } else if (candidates.length >= 2 && Math.random() < 0.22) {
-        ghost.dir = candidates[Math.floor(Math.random() * candidates.length)];
-      }
-
-      if (!forwardOpen && !candidates.length && options.length) {
-        ghost.dir = options[Math.floor(Math.random() * options.length)];
-      }
-    }
+  if (Math.abs(ghost.y - state.ghostHouseY) < 2 && ghost.dir !== 'U' && ghost.dir !== 'D') {
+    trySwitchDirection(ghost, 'U');
   }
 
-  const vec = directionVectors[ghost.dir];
-  const step = ghost.speed * dt;
-  const nextX = ghost.x + vec.x * step;
-  const nextY = ghost.y + vec.y * step;
-
-  const blocked = collidesWall(nextX, nextY, ghost.size) || nextX <= 0 || nextX + ghost.size >= boardWidth;
-  if (blocked) {
-    alignEntityToCenter(ghost);
-    const options = availableDirections(ghost);
-    if (options.length) {
-      ghost.dir = options[Math.floor(Math.random() * options.length)];
-    } else {
-      ghost.dir = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir] ?? ghost.dir;
+  const moved = moveByDirection(ghost, dt);
+  if (!moved) {
+    const opposite = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir];
+    const options = availableDirections(ghost).filter((dir) => dir !== opposite);
+    const fallback = options.length ? options : availableDirections(ghost);
+    if (fallback.length) {
+      ghost.dir = fallback[Math.floor(Math.random() * fallback.length)];
+      moveByDirection(ghost, dt);
     }
     return;
   }
 
-  ghost.x = nextX;
-  ghost.y = nextY;
+  if (Math.random() < 0.012) {
+    const opposite = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir];
+    const options = availableDirections(ghost).filter((dir) => dir !== opposite);
+    if (options.length) {
+      ghost.dir = options[Math.floor(Math.random() * options.length)];
+    }
+  }
 }
 
 function intersects(a, b) {
