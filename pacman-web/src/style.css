@@ -1,96 +1,107 @@
+* {
+  box-sizing: border-box;
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+  font-family: 'Courier New', Courier, monospace;
+  color: #f7f7ff;
+  background: #09091d;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
   min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 20% 20%, #2d0d57 0, transparent 30%),
+    radial-gradient(circle at 80% 80%, #11265c 0, transparent 30%),
+    #050513;
 }
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.game-shell {
+  position: relative;
+  width: fit-content;
+  border: 3px solid rgba(137, 250, 255, 0.65);
+  box-shadow:
+    0 0 20px rgba(77, 228, 255, 0.45),
+    inset 0 0 15px rgba(135, 100, 255, 0.25);
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 8, 20, 0.48);
+}
+
+.panel {
+  width: min(520px, 96%);
+  background: rgba(13, 18, 43, 0.9);
+  border: 2px solid rgba(120, 238, 255, 0.82);
+  box-shadow: 0 0 22px rgba(107, 229, 255, 0.35);
   text-align: center;
+  padding: 22px 18px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #f7df1eaa);
+.panel h1,
+.panel h2 {
+  margin: 0 0 12px;
+  color: #ffe66d;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 230, 109, 0.4);
 }
 
-.card {
-  padding: 2em;
+.panel p {
+  margin: 8px 0 14px;
+  color: #9ef3ff;
 }
 
-.read-the-docs {
-  color: #888;
+.panel .sub {
+  margin-top: 16px;
+  color: #ffc97f;
+  font-size: 0.9rem;
+}
+
+.btn-row {
+  display: grid;
+  gap: 10px;
+  max-width: 280px;
+  margin: 12px auto 0;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: linear-gradient(180deg, #325be0, #263593);
+  color: #fff;
   font-family: inherit;
-  background-color: #1a1a1a;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 12px 16px;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: transform 0.12s ease, filter 0.2s ease;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+
+button:active {
+  transform: translateY(1px);
 }
