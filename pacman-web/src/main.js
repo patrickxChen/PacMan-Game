@@ -145,8 +145,10 @@ function collidesWall(x, y, size) {
 }
 
 function currentTile(entity) {
-  const col = Math.round(entity.x / tileSize);
-  const row = Math.round(entity.y / tileSize);
+  const centerX = entity.x + entity.size / 2;
+  const centerY = entity.y + entity.size / 2;
+  const col = Math.floor(centerX / tileSize);
+  const row = Math.floor(centerY / tileSize);
   return {
     col: Math.max(0, Math.min(columnCount - 1, col)),
     row: Math.max(0, Math.min(rowCount - 1, row))
@@ -159,12 +161,11 @@ function isTileOpen(col, row) {
 }
 
 function isNearTileCenter(entity, threshold = 4) {
+  const tile = currentTile(entity);
+  const tileCenterX = tile.col * tileSize + tileSize / 2;
+  const tileCenterY = tile.row * tileSize + tileSize / 2;
   const centerX = entity.x + entity.size / 2;
   const centerY = entity.y + entity.size / 2;
-  const centerCol = Math.round(entity.x / tileSize);
-  const centerRow = Math.round(entity.y / tileSize);
-  const tileCenterX = centerCol * tileSize + tileSize / 2;
-  const tileCenterY = centerRow * tileSize + tileSize / 2;
 
   return (
     Math.abs(centerX - tileCenterX) <= threshold &&
@@ -196,6 +197,10 @@ function moveEntity(entity, dt) {
     alignEntityToCenter(entity);
     if (canMove(entity, entity.intendedDir)) {
       entity.dir = entity.intendedDir;
+    }
+
+    if (!canMove(entity, entity.dir)) {
+      return;
     }
   }
 
@@ -231,6 +236,10 @@ function updateGhost(ghost, dt) {
         ghost.dir = candidates[Math.floor(Math.random() * candidates.length)];
       } else if (candidates.length >= 2 && Math.random() < 0.22) {
         ghost.dir = candidates[Math.floor(Math.random() * candidates.length)];
+      }
+
+      if (!forwardOpen && !candidates.length && options.length) {
+        ghost.dir = options[Math.floor(Math.random() * options.length)];
       }
     }
   }
