@@ -122,9 +122,20 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
     Random random = new Random();
     int score = 0;
     int lives = 3;
+    int initialLives;
+    int gameLoopDelay;
+    int introTicksRemaining = 0;
     boolean gameOver = false;
 
     PacMan() {
+        this(50, 3);
+    }
+
+    PacMan(int gameLoopDelay, int initialLives) {
+        this.gameLoopDelay = gameLoopDelay;
+        this.initialLives = initialLives;
+        this.lives = initialLives;
+
         setPreferredSize(new Dimension(boardWidth, boardHeight));
         setBackground(Color.BLACK);
         addKeyListener(this);
@@ -147,8 +158,9 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
             char newDirection = directions[random.nextInt(4)];
             ghost.updateDirection(newDirection);
         }
+        startRoundIntro();
         //how long it takes to start timer, milliseconds gone between frames
-        gameLoop = new Timer(50, this); //20fps (1000/50)
+        gameLoop = new Timer(gameLoopDelay, this);
         gameLoop.start();
 
     }
@@ -197,27 +209,84 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
     }
 
     public void render(Graphics g) {
-        g.drawImage(hero.image, hero.x, hero.y, hero.width, hero.height, null);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        for (Entity ghost : specters) {
-            g.drawImage(ghost.image, ghost.x, ghost.y, ghost.width, ghost.height, null);
+        GradientPaint bgGradient = new GradientPaint(
+                0,
+                0,
+                new Color(8, 8, 26),
+                0,
+                boardHeight,
+                new Color(18, 6, 48)
+        );
+        g2.setPaint(bgGradient);
+        g2.fillRect(0, 0, boardWidth, boardHeight);
+
+        g2.setColor(new Color(120, 180, 255, 18));
+        for (int x = 0; x < boardWidth; x += tileSize) {
+            g2.drawLine(x, 0, x, boardHeight);
+        }
+        for (int y = 0; y < boardHeight; y += tileSize) {
+            g2.drawLine(0, y, boardWidth, y);
         }
 
         for (Entity wall : wallTiles) {
-            g.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height, null);
+            g2.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height, null);
+            g2.setColor(new Color(70, 180, 255, 52));
+            g2.fillRoundRect(wall.x + 2, wall.y + 2, wall.width - 4, wall.height - 4, 6, 6);
+            g2.setColor(new Color(125, 235, 255, 120));
+            g2.drawRoundRect(wall.x + 1, wall.y + 1, wall.width - 3, wall.height - 3, 6, 6);
         }
 
-        g.setColor(Color.WHITE);
         for (Entity pellet : pellets) {
-            g.fillRect(pellet.x, pellet.y, pellet.width, pellet.height);
+            g2.setColor(new Color(255, 245, 190, 70));
+            g2.fillOval(pellet.x - 2, pellet.y - 2, pellet.width + 4, pellet.height + 4);
+            g2.setColor(new Color(255, 230, 160));
+            g2.fillOval(pellet.x, pellet.y, pellet.width, pellet.height);
         }
-        //score
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
-        if (gameOver) {
-            g.drawString("Game Over: " + String.valueOf(score), tileSize/2, tileSize/2);
+
+        for (Entity ghost : specters) {
+            g2.drawImage(ghost.image, ghost.x, ghost.y, ghost.width, ghost.height, null);
         }
-        else {
-            g.drawString("x" + String.valueOf(lives) + " Score: " + String.valueOf(score), tileSize/2, tileSize/2);
+        g2.drawImage(hero.image, hero.x, hero.y, hero.width, hero.height, null);
+
+        g2.setColor(new Color(5, 7, 20, 210));
+        g2.fillRoundRect(8, 6, boardWidth - 16, 30, 10, 10);
+        g2.setColor(new Color(100, 225, 255, 110));
+        g2.drawRoundRect(8, 6, boardWidth - 16, 30, 10, 10);
+
+        g2.setFont(new Font("Monospaced", Font.BOLD, 16));
+        String hudText = gameOver
+                ? "GAME OVER   SCORE " + score
+                : "SCORE " + score;
+
+        int hudX = 20;
+        int hudY = 27;
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.drawString(hudText, hudX + 2, hudY + 2);
+        g2.setColor(gameOver ? new Color(255, 96, 96) : new Color(255, 230, 92));
+        g2.drawString(hudText, hudX, hudY);
+
+        int livesStartX = boardWidth - 22 - (lives * 20);
+        for (int i = 0; i < lives; i++) {
+            g2.drawImage(pacmanRightImage, livesStartX + (i * 20), 12, 16, 16, null);
+        }
+
+        if (!gameOver && introTicksRemaining > 0) {
+            String readyText = "READY!";
+            g2.setFont(new Font("Monospaced", Font.BOLD, 34));
+            FontMetrics fontMetrics = g2.getFontMetrics();
+            int textX = (boardWidth - fontMetrics.stringWidth(readyText)) / 2;
+            int textY = (boardHeight / 2) + 10;
+
+            g2.setColor(new Color(0, 0, 0, 185));
+            g2.fillRoundRect(textX - 24, textY - 38, fontMetrics.stringWidth(readyText) + 48, 52, 10, 10);
+
+            g2.setColor(new Color(255, 255, 255, 90));
+            g2.drawString(readyText, textX + 2, textY + 2);
+            g2.setColor(new Color(255, 225, 70));
+            g2.drawString(readyText, textX, textY);
         }
     }
 
@@ -238,11 +307,14 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
         for (Entity ghost : specters) {
             if (intersects(ghost, hero)) {
                 lives -= 1;
+                playHitSound();
                 if (lives == 0) {
                     gameOver = true;
+                    playGameOverSound();
                     return;
                 }
                 resetEntities();
+                startRoundIntro();
             }
 
             if (ghost.y == tileSize * 9 && ghost.direction != 'U' && ghost.direction != 'D') {
@@ -273,7 +345,41 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
         if (pellets.isEmpty()) {
             parseLevel();
             resetEntities();
+            startRoundIntro();
         }
+    }
+
+    private void startRoundIntro() {
+        introTicksRemaining = Math.max(1, 1200 / gameLoopDelay);
+        playStartSound();
+    }
+
+    private void playBeepPattern(int beepCount, int pauseMillis) {
+        Thread soundThread = new Thread(() -> {
+            for (int i = 0; i < beepCount; i++) {
+                Toolkit.getDefaultToolkit().beep();
+                try {
+                    Thread.sleep(pauseMillis);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        });
+        soundThread.setDaemon(true);
+        soundThread.start();
+    }
+
+    private void playStartSound() {
+        playBeepPattern(2, 120);
+    }
+
+    private void playHitSound() {
+        playBeepPattern(1, 80);
+    }
+
+    private void playGameOverSound() {
+        playBeepPattern(3, 170);
     }
 
     public boolean intersects(Entity a, Entity b) {
@@ -296,7 +402,11 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        updateGame();
+        if (introTicksRemaining > 0) {
+            introTicksRemaining--;
+        } else {
+            updateGame();
+        }
         repaint();
         if (gameOver) {
             gameLoop.stop();
@@ -314,9 +424,10 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
         if (gameOver) {
             parseLevel();
             resetEntities();
-            lives = 3;
+            lives = initialLives;
             score = 0;
             gameOver = false;
+            startRoundIntro();
             gameLoop.start();
         }
         // System.out.println("KeyEvent: " + e.getKeyCode());
