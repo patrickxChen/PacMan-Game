@@ -145,11 +145,11 @@ function collidesWall(x, y, size) {
 }
 
 function currentTile(entity) {
-  const centerX = entity.x + entity.size / 2;
-  const centerY = entity.y + entity.size / 2;
+  const col = Math.round(entity.x / tileSize);
+  const row = Math.round(entity.y / tileSize);
   return {
-    col: Math.floor(centerX / tileSize),
-    row: Math.floor(centerY / tileSize)
+    col: Math.max(0, Math.min(columnCount - 1, col)),
+    row: Math.max(0, Math.min(rowCount - 1, row))
   };
 }
 
@@ -161,8 +161,8 @@ function isTileOpen(col, row) {
 function isNearTileCenter(entity, threshold = 4) {
   const centerX = entity.x + entity.size / 2;
   const centerY = entity.y + entity.size / 2;
-  const centerCol = Math.floor(centerX / tileSize);
-  const centerRow = Math.floor(centerY / tileSize);
+  const centerCol = Math.round(entity.x / tileSize);
+  const centerRow = Math.round(entity.y / tileSize);
   const tileCenterX = centerCol * tileSize + tileSize / 2;
   const tileCenterY = centerRow * tileSize + tileSize / 2;
 
@@ -246,6 +246,8 @@ function updateGhost(ghost, dt) {
     const options = availableDirections(ghost);
     if (options.length) {
       ghost.dir = options[Math.floor(Math.random() * options.length)];
+    } else {
+      ghost.dir = { U: 'D', D: 'U', L: 'R', R: 'L' }[ghost.dir] ?? ghost.dir;
     }
     return;
   }
