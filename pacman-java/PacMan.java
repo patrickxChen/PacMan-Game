@@ -125,16 +125,23 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
     int initialLives;
     int gameLoopDelay;
     int introTicksRemaining = 0;
+    int visualTick = 0;
+    Runnable quitAction;
     boolean gameOver = false;
 
     PacMan() {
-        this(50, 3);
+        this(50, 3, null);
     }
 
     PacMan(int gameLoopDelay, int initialLives) {
+        this(gameLoopDelay, initialLives, null);
+    }
+
+    PacMan(int gameLoopDelay, int initialLives, Runnable quitAction) {
         this.gameLoopDelay = gameLoopDelay;
         this.initialLives = initialLives;
         this.lives = initialLives;
+        this.quitAction = quitAction;
 
         setPreferredSize(new Dimension(boardWidth, boardHeight));
         setBackground(Color.BLACK);
@@ -231,6 +238,10 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
             g2.drawLine(0, y, boardWidth, y);
         }
 
+        int scanY = (visualTick * 4) % boardHeight;
+        g2.setColor(new Color(130, 255, 255, 28));
+        g2.fillRect(0, scanY, boardWidth, 3);
+
         for (Entity wall : wallTiles) {
             g2.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height, null);
             g2.setColor(new Color(70, 180, 255, 52));
@@ -240,8 +251,9 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
         }
 
         for (Entity pellet : pellets) {
+            int pulseSize = ((visualTick / 4) % 2 == 0) ? 4 : 2;
             g2.setColor(new Color(255, 245, 190, 70));
-            g2.fillOval(pellet.x - 2, pellet.y - 2, pellet.width + 4, pellet.height + 4);
+            g2.fillOval(pellet.x - pulseSize / 2, pellet.y - pulseSize / 2, pellet.width + pulseSize, pellet.height + pulseSize);
             g2.setColor(new Color(255, 230, 160));
             g2.fillOval(pellet.x, pellet.y, pellet.width, pellet.height);
         }
@@ -258,8 +270,8 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
 
         g2.setFont(new Font("Monospaced", Font.BOLD, 16));
         String hudText = gameOver
-                ? "GAME OVER   SCORE " + score
-                : "SCORE " + score;
+            ? "GAME OVER   SCORE " + score + "   PRESS ANY KEY"
+            : "SCORE " + score + "   Q MENU";
 
         int hudX = 20;
         int hudY = 27;
@@ -407,6 +419,7 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
         } else {
             updateGame();
         }
+        visualTick++;
         repaint();
         if (gameOver) {
             gameLoop.stop();
@@ -421,6 +434,19 @@ public class PacMan extends JPanel implements ActionListener, KeyListener {
 
     @Override
     public void keyReleased(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_Q) {
+            gameLoop.stop();
+            if (quitAction != null) {
+                quitAction.run();
+            } else {
+                Window window = SwingUtilities.getWindowAncestor(this);
+                if (window != null) {
+                    window.dispose();
+                }
+            }
+            return;
+        }
+
         if (gameOver) {
             parseLevel();
             resetEntities();

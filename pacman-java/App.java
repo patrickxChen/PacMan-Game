@@ -18,6 +18,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 public class App {
 
@@ -33,6 +34,7 @@ public class App {
 
     interface StartMenuListener {
         void onDifficultySelected(DifficultySettings settings);
+        void onQuitRequested();
     }
 
     static class MenuButton extends JButton {
@@ -93,6 +95,9 @@ public class App {
     }
 
     static class StartMenuPanel extends JPanel {
+        private final Timer animationTimer;
+        private int pulseTick = 0;
+
         StartMenuPanel(StartMenuListener listener) {
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
             setBorder(BorderFactory.createEmptyBorder(90, 80, 70, 80));
@@ -128,7 +133,11 @@ public class App {
             hardButton.setAlignmentX(CENTER_ALIGNMENT);
             hardButton.addActionListener(e -> listener.onDifficultySelected(new DifficultySettings(40, 2)));
 
-            JLabel hint = new JLabel("ARROW KEYS TO MOVE  •  ANY KEY TO RESTART", SwingConstants.CENTER);
+            MenuButton quitButton = new MenuButton("QUIT", new Color(80, 80, 95), new Color(110, 110, 130));
+            quitButton.setAlignmentX(CENTER_ALIGNMENT);
+            quitButton.addActionListener(e -> listener.onQuitRequested());
+
+            JLabel hint = new JLabel("ARROW KEYS TO MOVE  •  ANY KEY TO RESTART  •  Q TO QUIT", SwingConstants.CENTER);
             hint.setAlignmentX(CENTER_ALIGNMENT);
             hint.setFont(new Font("Monospaced", Font.BOLD, 13));
             hint.setForeground(new Color(255, 210, 110));
@@ -138,6 +147,8 @@ public class App {
             buttonPanel.add(normalButton);
             buttonPanel.add(Box.createRigidArea(new Dimension(0, 12)));
             buttonPanel.add(hardButton);
+            buttonPanel.add(Box.createRigidArea(new Dimension(0, 12)));
+            buttonPanel.add(quitButton);
 
             add(title);
             add(Box.createRigidArea(new Dimension(0, 10)));
@@ -146,6 +157,18 @@ public class App {
             add(buttonPanel);
             add(Box.createRigidArea(new Dimension(0, 18)));
             add(hint);
+
+            animationTimer = new Timer(80, e -> {
+                pulseTick++;
+                repaint();
+            });
+            animationTimer.start();
+        }
+
+        @Override
+        public void removeNotify() {
+            animationTimer.stop();
+            super.removeNotify();
         }
 
         @Override
@@ -179,6 +202,11 @@ public class App {
             g2.setStroke(new BasicStroke(3f));
             g2.drawRect(14, 14, getWidth() - 28, getHeight() - 28);
 
+            int pulseAlpha = 25 + (int) (20 * Math.sin(pulseTick * 0.35));
+            g2.setColor(new Color(255, 225, 60, Math.max(10, pulseAlpha)));
+            g2.setStroke(new BasicStroke(2f));
+            g2.drawRect(24, 24, getWidth() - 48, getHeight() - 48);
+
             g2.setColor(new Color(255, 255, 255, 22));
             for (int i = 0; i < 55; i++) {
                 int x = (i * 97) % getWidth();
@@ -186,8 +214,43 @@ public class App {
                 int size = 2 + (i % 3);
                 g2.fillOval(x, y, size, size);
             }
+
+            g2.setColor(new Color(0, 255, 255, 55));
+            int scanY = (pulseTick * 6) % Math.max(1, getHeight());
+            g2.fillRect(0, scanY, getWidth(), 4);
             g2.dispose();
         }
+    }
+
+    private static void showStartMenu(JFrame frame) {
+        StartMenuPanel menuPanel = new StartMenuPanel(new StartMenuListener() {
+            @Override
+            public void onDifficultySelected(DifficultySettings settings) {
+                PacMan pacmanGame = new PacMan(
+                        settings.loopDelay,
+                        settings.startingLives,
+                        () -> SwingUtilities.invokeLater(() -> showStartMenu(frame))
+                );
+
+                frame.getContentPane().removeAll();
+                frame.getContentPane().setLayout(new BorderLayout());
+                frame.add(pacmanGame, BorderLayout.CENTER);
+                frame.revalidate();
+                frame.repaint();
+                SwingUtilities.invokeLater(pacmanGame::requestFocusInWindow);
+            }
+
+            @Override
+            public void onQuitRequested() {
+                frame.dispose();
+            }
+        });
+
+        frame.getContentPane().removeAll();
+        frame.getContentPane().setLayout(new BorderLayout());
+        frame.add(menuPanel, BorderLayout.CENTER);
+        frame.revalidate();
+        frame.repaint();
     }
 
     public static void main(String[] args) throws Exception {
@@ -203,17 +266,7 @@ public class App {
         frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        StartMenuPanel menuPanel = new StartMenuPanel(settings -> {
-            PacMan pacmanGame = new PacMan(settings.loopDelay, settings.startingLives);
-            frame.getContentPane().removeAll();
-            frame.getContentPane().setLayout(new BorderLayout());
-            frame.add(pacmanGame, BorderLayout.CENTER);
-            frame.revalidate();
-            frame.repaint();
-            SwingUtilities.invokeLater(pacmanGame::requestFocusInWindow);
-        });
-
-        frame.add(menuPanel);
+        showStartMenu(frame);
         frame.pack();
         frame.setVisible(true);
 
