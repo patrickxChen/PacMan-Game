@@ -93,6 +93,8 @@ const state = {
   ghosts: [] as Entity[],
   walls: new Set<string>(),
   pellets: new Set<string>(),
+  distanceMap: [] as number[][],
+  lastHeroTileKey: '',
   lastFrame: 0
 };
 
@@ -134,6 +136,8 @@ function parseBoard(): void {
   state.pellets.clear();
   state.ghosts = [];
   state.hero = null;
+  state.distanceMap = Array.from({ length: rows }, () => Array(cols).fill(Number.POSITIVE_INFINITY));
+  state.lastHeroTileKey = '';
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -195,28 +199,34 @@ function backToMenu(): void {
   showMenu();
 }
 
-function bfsDistance(startRow: number, startCol: number, targetRow: number, targetCol: number): number {
-  if (startRow === targetRow && startCol === targetCol) return 0;
+function updateDistanceMapFromHero(): void {
+  if (!state.hero) return;
 
-  const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-  const queue: Array<{ row: number; col: number; dist: number }> = [{ row: startRow, col: startCol, dist: 0 }];
-  visited[startRow][startCol] = true;
+  const heroKey = key(state.hero.row, state.hero.col);
+  if (heroKey === state.lastHeroTileKey) return;
+
+  state.lastHeroTileKey = heroKey;
+  state.distanceMap = Array.from({ length: rows }, () => Array(cols).fill(Number.POSITIVE_INFINITY));
+
+  const queue: Array<{ row: number; col: number }> = [{ row: state.hero.row, col: state.hero.col }];
+  state.distanceMap[state.hero.row][state.hero.col] = 0;
 
   while (queue.length) {
     const current = queue.shift()!;
-    const neighbors: Dir[] = ['U', 'D', 'L', 'R'];
-    for (const dir of neighbors) {
+    const baseDist = state.distanceMap[current.row][current.col];
+
+    for (const dir of ['U', 'D', 'L', 'R'] as Dir[]) {
       const d = directions[dir];
       const nr = current.row + d.dr;
       const nc = current.col + d.dc;
-      if (!isWalkable(nr, nc) || visited[nr][nc]) continue;
-      if (nr === targetRow && nc === targetCol) return current.dist + 1;
-      visited[nr][nc] = true;
-      queue.push({ row: nr, col: nc, dist: current.dist + 1 });
+      if (!isWalkable(nr, nc)) continue;
+
+      if (state.distanceMap[nr][nc] > baseDist + 1) {
+        state.distanceMap[nr][nc] = baseDist + 1;
+        queue.push({ row: nr, col: nc });
+      }
     }
   }
-
-  return Number.POSITIVE_INFINITY;
 }
 
 function chooseGhostDirection(ghost: Entity): Dir {
@@ -239,7 +249,7 @@ function chooseGhostDirection(ghost: Entity): Dir {
     const d = directions[dir];
     const nr = ghost.row + d.dr;
     const nc = ghost.col + d.dc;
-    const dist = bfsDistance(nr, nc, state.hero.row, state.hero.col);
+    const dist = state.distanceMap[nr]?.[nc] ?? Number.POSITIVE_INFINITY;
     if (dist < bestDist) {
       bestDist = dist;
       bestDir = dir;
@@ -354,6 +364,7 @@ function update(dtMs: number, now: number): void {
   if (now < state.introUntil) return;
 
   updateEntity(state.hero, dtMs, stepEntity);
+  updateDistanceMapFromHero();
   checkPellet();
 
   for (const ghost of state.ghosts) {
