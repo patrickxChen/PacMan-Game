@@ -14,6 +14,8 @@ type Difficulty = {
 type Entity = {
   row: number;
   col: number;
+  prevRow: number;
+  prevCol: number;
   startRow: number;
   startCol: number;
   dir: Dir;
@@ -115,6 +117,8 @@ function makeEntity(row: number, col: number, stepMs: number, dir: Dir, color?: 
   return {
     row,
     col,
+    prevRow: row,
+    prevCol: col,
     startRow: row,
     startCol: col,
     dir,
@@ -158,6 +162,8 @@ function resetEntityPositions(): void {
   if (!state.hero) return;
   state.hero.row = state.hero.startRow;
   state.hero.col = state.hero.startCol;
+  state.hero.prevRow = state.hero.startRow;
+  state.hero.prevCol = state.hero.startCol;
   state.hero.dir = 'R';
   state.hero.nextDir = 'R';
   state.hero.accumulator = 0;
@@ -165,6 +171,8 @@ function resetEntityPositions(): void {
   state.ghosts.forEach((g) => {
     g.row = g.startRow;
     g.col = g.startCol;
+    g.prevRow = g.startRow;
+    g.prevCol = g.startCol;
     g.dir = (['U', 'D', 'L', 'R'][Math.floor(Math.random() * 4)] as Dir);
     g.nextDir = g.dir;
     g.accumulator = 0;
@@ -246,8 +254,13 @@ function stepEntity(entity: Entity): void {
     entity.dir = entity.nextDir;
   }
   if (!canMove(entity, entity.dir)) {
+    entity.prevRow = entity.row;
+    entity.prevCol = entity.col;
     return;
   }
+
+  entity.prevRow = entity.row;
+  entity.prevCol = entity.col;
   const d = directions[entity.dir];
   entity.row += d.dr;
   entity.col += d.dc;
@@ -256,10 +269,27 @@ function stepEntity(entity: Entity): void {
 function stepGhost(ghost: Entity): void {
   ghost.dir = chooseGhostDirection(ghost);
   ghost.nextDir = ghost.dir;
-  if (!canMove(ghost, ghost.dir)) return;
+  if (!canMove(ghost, ghost.dir)) {
+    ghost.prevRow = ghost.row;
+    ghost.prevCol = ghost.col;
+    return;
+  }
+
+  ghost.prevRow = ghost.row;
+  ghost.prevCol = ghost.col;
   const d = directions[ghost.dir];
   ghost.row += d.dr;
   ghost.col += d.dc;
+}
+
+function entityRenderPosition(entity: Entity): { x: number; y: number } {
+  const t = Math.max(0, Math.min(1, entity.accumulator / entity.stepMs));
+  const drawRow = entity.prevRow + (entity.row - entity.prevRow) * t;
+  const drawCol = entity.prevCol + (entity.col - entity.prevCol) * t;
+  return {
+    x: drawCol * tileSize,
+    y: drawRow * tileSize
+  };
 }
 
 function updateEntity(entity: Entity, dtMs: number, stepFn: (e: Entity) => void): void {
@@ -394,8 +424,9 @@ function drawPellets(now: number): void {
 }
 
 function drawGhost(ghost: Entity): void {
-  const x = ghost.col * tileSize;
-  const y = ghost.row * tileSize;
+  const pos = entityRenderPosition(ghost);
+  const x = pos.x;
+  const y = pos.y;
   const s = tileSize;
 
   ctx.fillStyle = ghost.color ?? '#fff';
@@ -418,8 +449,9 @@ function drawGhost(ghost: Entity): void {
 
 function drawHero(now: number): void {
   if (!state.hero) return;
-  const x = state.hero.col * tileSize + tileSize / 2;
-  const y = state.hero.row * tileSize + tileSize / 2;
+  const pos = entityRenderPosition(state.hero);
+  const x = pos.x + tileSize / 2;
+  const y = pos.y + tileSize / 2;
   const mouth = (Math.sin(now / 90) + 1) * 0.2 + 0.08;
   const angleMap: Record<Dir, number> = { R: 0, L: Math.PI, U: -Math.PI / 2, D: Math.PI / 2 };
   const base = angleMap[state.hero.dir];
