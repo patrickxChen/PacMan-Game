@@ -148,7 +148,12 @@ function canStep(entity, dir, step = 2) {
   const vec = directionVectors[dir];
   const testX = entity.x + vec.x * step;
   const testY = entity.y + vec.y * step;
-  return !collidesWall(testX, testY, entity.size);
+  const insideBoard =
+    testX >= 0 &&
+    testY >= 0 &&
+    testX + entity.size <= boardWidth &&
+    testY + entity.size <= boardHeight;
+  return insideBoard && !collidesWall(testX, testY, entity.size);
 }
 
 function moveByDirection(entity, dt) {
@@ -156,7 +161,13 @@ function moveByDirection(entity, dt) {
   const step = entity.speed * dt;
   const nextX = entity.x + vec.x * step;
   const nextY = entity.y + vec.y * step;
-  if (!collidesWall(nextX, nextY, entity.size)) {
+  const insideBoard =
+    nextX >= 0 &&
+    nextY >= 0 &&
+    nextX + entity.size <= boardWidth &&
+    nextY + entity.size <= boardHeight;
+
+  if (insideBoard && !collidesWall(nextX, nextY, entity.size)) {
     entity.x = nextX;
     entity.y = nextY;
     return true;
@@ -164,7 +175,30 @@ function moveByDirection(entity, dt) {
   return false;
 }
 
+function snapToLane(entity, dir) {
+  const snapThreshold = 7;
+  if (dir === 'U' || dir === 'D') {
+    const targetX = Math.round(entity.x / tileSize) * tileSize;
+    if (Math.abs(entity.x - targetX) <= snapThreshold) {
+      entity.x = targetX;
+      return true;
+    }
+    return false;
+  }
+
+  const targetY = Math.round(entity.y / tileSize) * tileSize;
+  if (Math.abs(entity.y - targetY) <= snapThreshold) {
+    entity.y = targetY;
+    return true;
+  }
+  return false;
+}
+
 function trySwitchDirection(entity, dir) {
+  if (!snapToLane(entity, dir)) {
+    return false;
+  }
+
   if (canStep(entity, dir, 3)) {
     entity.dir = dir;
     return true;
