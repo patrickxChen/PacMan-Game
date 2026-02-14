@@ -145,10 +145,8 @@ function collidesWall(x, y, size) {
 }
 
 function currentTile(entity) {
-  const centerX = entity.x + entity.size / 2;
-  const centerY = entity.y + entity.size / 2;
-  const col = Math.floor(centerX / tileSize);
-  const row = Math.floor(centerY / tileSize);
+  const col = Math.round(entity.x / tileSize);
+  const row = Math.round(entity.y / tileSize);
   return {
     col: Math.max(0, Math.min(columnCount - 1, col)),
     row: Math.max(0, Math.min(rowCount - 1, row))
